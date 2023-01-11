@@ -3,62 +3,116 @@ import numpy as np
 import math as m
 import pandas as pd
 import qutip as qt
-import scipy as sp
+from mpl_toolkits.mplot3d import Axes3D
 
-def rotMat(theta):
-    rot = np.matrix([[np.cos(theta), np.sin(theta)],[-1*np.sin(theta), np.cos(theta)]])
-    return rot
+#code for HW4
 
-def func(x):
-    p = x[0]
-    c = x[1]
-    F1 = np.zeros(2)
-    F1[0] = (.177-1j*.354)*(np.cos(p)*np.cos(c) - 1j*np.sin(p)*np.sin(c)) + .306*(np.sin(p)*np.cos(c) + 1j*np.cos(p)*np.sin(c))
-    F1[1] = (.306-1j*.612)*(np.cos(p)*np.cos(c) - 1j*np.sin(p)*np.sin(c)) + .530*(np.sin(p)*np.cos(c) + 1j*np.cos(p)*np.sin(c))
-    return F1
+#problem 3
 
-#Physical optics hw 4
+#part a
+R = 1
+B0 = 1
+#h = 6.626e-34
+h = 1
+e = 1.602e-19
+hbar = h/(2*np.pi)
+Ec = h*.2e9
+Ej = h*5e9
+phi0 = h/(2*e)
+
+#Hamiltonian
+n = []
+for i in range(-10,11):
+    n.append(i)
+
+
+ng = np.linspace(-2,2, 200)
+ev = []
+ef = []
+H0 = np.zeros([len(ng), len(n), len(n)])
+for i in range(len(ng)):
+    for j in range(len(n)):
+        if n[j] == -10:
+            H0[i] = H0[i] + 4*Ec*((n[j] - ng[i])**2)*qt.basis(len(n),n[j]+10)*qt.basis(len(n), n[j]+10).dag()
+        elif n[j] == 10:
+            H0[i] = H0[i] + 4*Ec*((n[j] - ng[i])**2)*qt.basis(len(n),n[j]+10)*qt.basis(len(n), n[j]+10).dag()
+        else:
+            H0[i] = H0[i] + 4*Ec*((n[j] - ng[i])**2)*qt.basis(len(n),n[j]+10)*qt.basis(len(n), n[j]+10).dag()-(Ej/2)*(qt.basis(len(n), n[j]+11)*qt.basis(len(n), n[j]+10).dag() + qt.basis(len(n), n[j]+9)*qt.basis(len(n), n[j]+10).dag())
+    v,f = np.linalg.eig(H0[i])
+    idx = np.argsort(v)
+    v = v[idx]
+    f = f[:][idx]
+    ev.append(v)
+    ef.append(f)
+
+H1 = np.zeros([len(n), len(n)])
+ng1 = 0
+for j in range(len(n)):
+        if n[j] == -10:
+            H1 = H1 + 4*Ec*((n[j]-ng1)**2)*qt.fock(len(n),n[j], n[0])*qt.basis(len(n), n[j]+10).dag()
+        elif n[j] == 10:
+            H1 = H1 + 4*Ec*((n[j]-ng1)**2)*qt.fock(len(n),n[j], n[0])*qt.fock(len(n), n[j], n[0]).dag()
+        else:
+            H1 = H1 + 4*Ec*((n[j]-ng1)**2)*qt.fock(len(n),n[j], n[0])*qt.fock(len(n), n[j], n[0]).dag()-(Ej/2)*(qt.fock(len(n), n[j], n[0])*qt.fock(len(n), n[j]+1, n[0]).dag() + qt.fock(len(n), n[j]+1, n[0])*qt.fock(len(n), n[j], n[0]).dag())
+            
+v1, f1 = np.linalg.eig(H1)
+idx1 =  np.argsort(v1)
+v1 = v1[idx1]
+f1 = f1[:,idx1]
+
+ev0 = np.zeros(len(ng))
+ev1 = np.zeros(len(ng))
+ev2 = np.zeros(len(ng))
+ev3 = np.zeros(len(ng))
+ev4 = np.zeros(len(ng))
+for i in range(len(ng)):
+    ev0[i] = ev[i][0]
+    ev1[i] = ev[i][1]
+    ev2[i] = ev[i][2]
+    ev3[i] = ev[i][3]
+    ev4[i] = ev[i][4]
+floor = min(ev0)
 
 #problem 1
+n1 = [0,1,2,3]
+theta = np.linspace(0, 2*np.pi, 1000)
 
-#matrix for polarizer
-tp1 = 60*(np.pi/180)
-tph = np.matrix([[1,0],[0,0]])
-p1 = np.matmul(rotMat(-1*tp1), np.matmul(tph,rotMat(tp1)))
+pl.figure(1)
+pl.plot(ng, (ev0-floor)*1e-9)
+pl.plot(ng, (ev1-floor)*1e-9)
+pl.plot(ng, (ev2-floor)*1e-9)
+pl.plot(ng, (ev3-floor)*1e-9)
+pl.plot(ng, (ev4-floor)*1e-9)
+pl.xlabel("ng")
+pl.ylabel("E/E0")
+pl.title("Energy Dispersion of Cooper Pair Box")
 
-#matrix for quarter wave plate
-tqwp1 = 30*(np.pi/180)
-qwph = np.exp(-1j*np.pi/4)*np.matrix([[1,0],[0,1j]])
-qwp1 = np.matmul(rotMat(-1*tqwp1), np.matmul(qwph, rotMat(tqwp1)))
+pl.figure(2)
+pl.subplot(5,1,1)
+pl.bar(n,f1[:,0])
+pl.ylabel("psi0")
+pl.title("Cooper Pair Box Wavefunctions")
+pl.subplot(5,1,2)
+pl.bar(n,f1[:,1])
+pl.ylabel("psi1")
+pl.subplot(5,1,3)
+pl.bar(n,f1[:,2])
+pl.ylabel("psi2")
+pl.subplot(5,1,4)
+pl.bar(n,f1[:,3])
+pl.ylabel("psi3")
+pl.subplot(5,1,5)
+pl.bar(n,f1[:,4])
+pl.xlabel("n")
+pl.ylabel("psi4")
 
-#total polarization matrix
-pol1 = np.matmul(p1, qwp1)
+pl.figure(3)
+for i in range(len(n1)):
+    pl.plot(theta, n1[i]*theta)
+pl.xlabel("Theta (radians)")
+pl.ylabel("Phase (radians)")
+pl.title("Phase vs. Theta")
+pl.legend(["n = 0", "n = 1", "n = 2", "n = 3"])
 
-#solve for Ex and Ey
-Ex = 1/np.sqrt(1+abs((-.177 + 1j*.354)/.306)**2)
-Ey = ((-.177+1j*.354)/.306)*Ex
-alpha1 = np.arctan(-1*abs(Ey/Ex))
-phiyx1 = np.arctan(.708/-.354)
-psi1 = .5*np.arctan(np.cos(phiyx1)*np.tan(2*alpha1))
-chi1 = np.arcsin(np.sin(2*alpha1)*np.sin(phiyx1))/2
-print("Ex = ", Ex)
-print("Ey = ", Ey)
-print("alpha = ", alpha1*(180/np.pi))
-print("Phiy - Phix  = ", phiyx1*(180/np.pi))
-print("Psi = ", psi1*(180/np.pi))
-print("Chi = ", chi1*(180/np.pi))
-print("\r\n")
-
-#problem 2
-m1 = np.matrix([[1,0],[0,0]])
-m2 = (1/np.sqrt(2))*np.matrix([[1,1j], [1j,1]])
-m3 = np.matrix([[1,0],[0,-1]])
-
-m2b = (1/np.sqrt(2))*np.matrix([[1,-1j], [-1j,1]])
-
-mf = np.matmul(m1, np.matmul(m2b,np.matmul(m3,np.matmul(m2,m1))))
-print("Final matrix: ", mf)
-
-#problem 4
-
-
+pl.show()
+    

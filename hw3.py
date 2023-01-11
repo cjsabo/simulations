@@ -3,77 +3,73 @@ import numpy as np
 import math as m
 import pandas as pd
 import qutip as qt
-import sympy as sym
+from mpl_toolkits.mplot3d import Axes3D
 
-#Physical Optics Homework 3
+#Code for HW3
 
-#problem 4
+#problem 3
 
-#part a
-sigma = 1
-D = 1
-z = np.linspace(0,.5,100)
-z2 = np.linspace(0,5,1000)
+#constants
+w0 = 2*np.pi*5e9                                      #resonant frequency
+wL = w0                                               #drive frequency
+bigO = 2*np.pi*5e6                                    #Rabi drive frequency
+T1 = 5e-6                                             #seconds, relaxation time
+T_phi = 1e-6                                          #seconds, dephasing time
+t_gate = np.linspace(0,100e-9, 1001)                  #seconds, gate time
 
-sigz = np.sqrt(sigma**2 + 1j*2*D*z)
+#Pauli matrices
+sx = qt.sigmax()
+sy = qt.sigmay()
+sz = qt.sigmaz()
+sm = qt.Qobj([[0,1],[0,0]])
+sp = qt.Qobj([[0,0],[1,0]])
 
-pl.figure(1)
-pl.plot(z, abs(sigz))
-pl.xlabel('z')
-pl.ylabel('width')
-pl.title('Width vs. position')
+#jump operators
+Lm = np.sqrt(1/T1)*sm
+L_phi = np.sqrt(1/(2*T_phi))*sz
 
-#part b
-pl.figure(2)
-bc = .5
-a = (1/(1/(sigma**2) + 1j*bc)) + 1j*2*D*z2
-a1 = 1/a
-sigz2 = np.sqrt(1/(-1j*bc + a1))
+#make initial state the |1> state
+psi_init = qt.basis(2,1)
+
+#Rabi Hamiltonian
+H_rabi = -.5*(w0-wL)*sz + .5*bigO*sx
+
+#master equation solver
+result = qt.mesolve(H_rabi, psi_init, t_gate, c_ops=[Lm, L_phi])
+
+#extract point for bloch sphere
+r_x = []
+r_y = []
+r_z = []
+
+for i in range(0,len(t_gate), 10):
+    state = result.states[i]
+    r_x.append(qt.expect(sx,state))
+    r_y.append(qt.expect(sy,state))
+    r_z.append(qt.expect(sz,state))
+    
+points = [r_x, r_y, r_z]
+
+fig, axs = pl.subplots(figsize=(4, 4), subplot_kw=dict(projection='3d'))
+
+bloch = qt.Bloch(fig=fig, axes=axs)
+bloch.point_marker = ['o']
+bloch.point_size = [10]
+bloch.view = [40,35]
+bloch.add_points(points)
+bloch.render()
 
 
-pl.plot(z2, abs(sigz2))
-pl.xlabel('z')
-pl.ylabel('width')
-pl.title('Width vs. position (chirped)')
+#calculate fidelity of gate
+psi_fin_ideal = qt.basis(2,0)
+psi_fin = psi_fin_ideal*psi_fin_ideal.dag()
 
+psi_fin_actual = result.states[len(t_gate)-1]
 
-#extra credit problem
-l = np.linspace(.6, 1.6, 1000)      #wavelength in microns
-dl = .01
-n = np.sqrt((.6961663*l**2)/(l**2 - .0684043**2) + (.4079426*l**2)/(l**2 - .1162414**2) + (.8974794*l**2)/(l**2 - 9.896161**2) + 1)
-nplus = np.sqrt((.6961663*(l+dl)**2)/((l+dl)**2 - .0684043**2) + (.4079426*(l+dl)**2)/((l+dl)**2 - .1162414**2) + (.8974794*(l+dl)**2)/((l+dl)**2 - 9.896161**2) + 1)
-nmin = np.sqrt((.6961663*(l-dl)**2)/((l-dl)**2 - .0684043**2) + (.4079426*(l-dl)**2)/((l-dl)**2 - .1162414**2) + (.8974794*(l-dl)**2)/((l-dl)**2 - 9.896161**2) + 1)
+arg = (psi_fin.sqrtm()*psi_fin_actual*psi_fin.sqrtm()).sqrtm()
 
-#part a
-pl.figure(3)
-pl.plot(l,n,'r')
-pl.xlabel("Wavelength (microns)")
-pl.ylabel("Refractive index")
-pl.title("Refractive index vs. wavelength")
-
-#part b
-pl.figure(4)
-T = (1/3e8)*(n - l*(nplus - nmin)/(2*dl))
-pl.plot(l,T)
-pl.xlabel('Wavelength (microns)')
-pl.ylabel('time (s/km)')
-pl.title('Propagation time vs. wavelength')
-
-#part c
-pl.figure(5)
-T1 = (3e8)*T
-T1plus = np.gradient(T1)/np.gradient(l)
-pl.plot(l,(1/3e8)*T1plus)
-pl.xlabel('wavelength')
-pl.ylabel('dispersion')
-pl.title('dispersion vs. wavelength')
-
-pl.figure(6)
-x = np.linspace(0,5,1000)
-y = x**4
-dx = np.gradient(x)
-dy = np.gradient(y)
-pl.plot(x, dy/dx)
-
+#final fidelity
+fid = arg.tr()**2
+print(fid)
 
 pl.show()
